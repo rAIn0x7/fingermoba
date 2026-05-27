@@ -45,14 +45,16 @@ jobs:
 
       - name: Install Godot export templates
         run: |
-          TMPL_DIR="$HOME/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable"
-          mkdir -p "$TMPL_DIR"
           wget -q \
             "https://github.com/godotengine/godot-builds/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz" \
             -O templates.tpz
           unzip -q templates.tpz -d /tmp/godot_templates
+          TMPL_VER=$(cat /tmp/godot_templates/templates/version.txt)
+          echo "Template version string: $TMPL_VER"
+          TMPL_DIR="$HOME/.local/share/godot/export_templates/$TMPL_VER"
+          mkdir -p "$TMPL_DIR"
           mv /tmp/godot_templates/templates/* "$TMPL_DIR/"
-          echo "Installed templates:"
+          echo "Installed templates to: $TMPL_DIR"
           ls "$TMPL_DIR/" | grep -i android
 
       - name: Generate debug keystore
