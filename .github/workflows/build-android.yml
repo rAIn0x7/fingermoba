@@ -29,7 +29,8 @@ jobs:
       - name: Install Android NDK and build tools
         run: |
           sdkmanager --install \
-            "ndk;25.1.8937393" \
+            "platform-tools" \
+            "ndk;23.2.8568313" \
             "build-tools;34.0.0" \
             "platforms;android-34"
 
@@ -80,11 +81,9 @@ jobs:
           echo "=== Editor settings ==="
           cat ~/.config/godot/editor_settings-4.tres
 
-      - name: Patch export preset
+      - name: Patch export preset keystore path
         run: |
           sed -i "s|keystore/debug=\"debug.keystore\"|keystore/debug=\"$GITHUB_WORKSPACE/debug.keystore\"|" export_presets.cfg
-          # Temporarily disable signing to isolate the issue
-          sed -i 's/package\/signed=true/package\/signed=false/' export_presets.cfg
           echo "=== Full export_presets.cfg ==="
           cat export_presets.cfg
 
@@ -92,10 +91,15 @@ jobs:
         run: |
           echo "=== jarsigner ==="
           which jarsigner || echo "jarsigner not found"
+          echo "=== adb (required by Godot) ==="
+          ls "$ANDROID_HOME/platform-tools/adb" 2>/dev/null && echo "adb OK" || echo "adb MISSING - this will cause can_export() to fail"
+          echo "=== NDK ==="
+          ls "$ANDROID_HOME/ndk/" 2>/dev/null || echo "ndk dir missing"
           echo "=== zipalign ==="
           find "$ANDROID_HOME/build-tools" -name zipalign 2>/dev/null | head -1 || echo "zipalign not found"
-          echo "=== aapt ==="
-          find "$ANDROID_HOME/build-tools" -name aapt 2>/dev/null | head -1 || echo "aapt not found"
+          echo "=== JAVA_HOME ==="
+          echo "$JAVA_HOME"
+          ls "$JAVA_HOME/bin/java" && echo "java OK" || echo "java MISSING"
 
       - name: Import project
         run: |
