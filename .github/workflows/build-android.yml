@@ -16,10 +16,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Godot environment from container
+        run: |
+          echo "HOME=$HOME"
+          # Copy export templates from container's root home to runner home
+          mkdir -p "$HOME/.local/share/godot/export_templates"
+          cp -r /root/.local/share/godot/export_templates/4.3.stable \
+            "$HOME/.local/share/godot/export_templates/4.3.stable"
+          echo "=== Android templates ==="
+          ls "$HOME/.local/share/godot/export_templates/4.3.stable/" | grep android
+          # Copy editor settings (has Android SDK, NDK, Java, keystore paths)
+          mkdir -p "$HOME/.config"
+          cp -r /root/.config/godot "$HOME/.config/godot"
+          echo "=== Editor settings ==="
+          cat "$HOME/.config/godot/editor_settings-4.tres"
+
       - name: Import project
         run: |
           timeout 120 godot --headless --editor --quit 2>&1 || true
-          echo "=== .godot dir ==="
           ls .godot/ 2>/dev/null || echo "No .godot dir"
 
       - name: Build Debug APK
