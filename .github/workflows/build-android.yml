@@ -11,51 +11,36 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: barichello/godot-ci:4.3
-      env:
-        HOME: /root
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inspect container environment
+      - name: Setup Godot environment
         run: |
-          echo "HOME=$HOME"
-          echo "ANDROID_HOME=${ANDROID_HOME}"
-          echo "JAVA_HOME=${JAVA_HOME}"
-          echo "=== /root/.config/godot ==="
-          ls /root/.config/godot/ 2>/dev/null || echo "no godot config dir"
-          echo "=== /root/.config/godot/editor_settings-4.tres ==="
-          cat /root/.config/godot/editor_settings-4.tres 2>/dev/null || echo "no editor settings"
-          echo "=== templates ==="
-          ls /root/.local/share/godot/export_templates/4.3.stable/ 2>/dev/null | grep android || echo "no templates"
-          echo "=== Java ==="
-          java -version 2>&1 | head -1 || echo "java not in PATH"
-          find /usr /opt -name "keytool" 2>/dev/null | head -3 || echo "keytool not found"
-          echo "=== Android SDK ==="
-          ls "${ANDROID_HOME:-/usr/lib/android-sdk}/" 2>/dev/null | head -5 || echo "sdk not found"
+          echo "HOME=$HOME, ANDROID_HOME=$ANDROID_HOME"
+          # Check container keystore
+          ls /root/debug.keystore 2>/dev/null && echo "container keystore OK" || echo "no container keystore"
 
-      - name: Setup editor settings
-        run: |
-          # Find Java home (try common paths)
-          JAVA_BASE=""
-          for p in "$JAVA_HOME" "/usr/lib/jvm/java-17-openjdk-amd64" "/usr/lib/jvm/java-17-openjdk-aarch64" "$(dirname "$(dirname "$(readlink -f "$(which java)" 2>/dev/null)" 2>/dev/null)" 2>/dev/null)"; do
-            if [ -n "$p" ] && [ -f "$p/bin/keytool" ]; then
-              JAVA_BASE="$p"
-              break
-            fi
-          done
-          echo "Using Java at: $JAVA_BASE"
+          # Find Java home
+          JAVA_BASE=$(dirname "$(dirname "$(readlink -f "$(which java)")")")
+          echo "Java: $JAVA_BASE"
 
-          SDK="${ANDROID_HOME:-/usr/lib/android-sdk}"
-          KEYSTORE="/root/debug.keystore"
+          # Copy export templates from container root to runner home
+          mkdir -p "$HOME/.local/share/godot/export_templates"
+          cp -r /root/.local/share/godot/export_templates/4.3.stable \
+            "$HOME/.local/share/godot/export_templates/4.3.stable"
+          ls "$HOME/.local/share/godot/export_templates/4.3.stable/" | grep android
 
-          mkdir -p /root/.config/godot
+          # Write editor settings — filename MUST be editor_settings-4.3.tres (minor version)
+          mkdir -p "$HOME/.config/godot"
           printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\nexport/android/debug_keystore = "%s"\nexport/android/debug_keystore_user = "androiddebugkey"\nexport/android/debug_keystore_pass = "android"\n' \
-            "$SDK" "$JAVA_BASE" "$KEYSTORE" \
-            > /root/.config/godot/editor_settings-4.tres
-          echo "=== Created editor settings ==="
-          cat /root/.config/godot/editor_settings-4.tres
+            "${ANDROID_HOME:-/usr/lib/android-sdk}" \
+            "$JAVA_BASE" \
+            "/root/debug.keystore" \
+            > "$HOME/.config/godot/editor_settings-4.3.tres"
+          echo "=== editor_settings-4.3.tres ==="
+          cat "$HOME/.config/godot/editor_settings-4.3.tres"
 
       - name: Import project
         run: |
