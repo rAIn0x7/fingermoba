@@ -80,13 +80,13 @@ jobs:
           echo "=== Editor settings ==="
           cat ~/.config/godot/editor_settings-4.tres
 
-      - name: Patch export preset keystore path
+      - name: Patch export preset
         run: |
           sed -i "s|keystore/debug=\"debug.keystore\"|keystore/debug=\"$GITHUB_WORKSPACE/debug.keystore\"|" export_presets.cfg
+          # Temporarily disable signing to isolate the issue
+          sed -i 's/package\/signed=true/package\/signed=false/' export_presets.cfg
           echo "=== Full export_presets.cfg ==="
           cat export_presets.cfg
-          echo "=== editor_settings-4.tres ==="
-          cat ~/.config/godot/editor_settings-4.tres
 
       - name: Verify tools
         run: |
