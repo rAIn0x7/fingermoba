@@ -83,8 +83,10 @@ jobs:
       - name: Patch export preset keystore path
         run: |
           sed -i "s|keystore/debug=\"debug.keystore\"|keystore/debug=\"$GITHUB_WORKSPACE/debug.keystore\"|" export_presets.cfg
-          echo "=== export_presets.cfg keystore line ==="
-          grep keystore export_presets.cfg
+          echo "=== Full export_presets.cfg ==="
+          cat export_presets.cfg
+          echo "=== editor_settings-4.tres ==="
+          cat ~/.config/godot/editor_settings-4.tres
 
       - name: Verify tools
         run: |
@@ -104,7 +106,7 @@ jobs:
       - name: Build Debug APK
         run: |
           mkdir -p builds
-          godot --headless --export-debug "Android" "$GITHUB_WORKSPACE/builds/fingermoba.apk" 2>&1
+          godot --headless --verbose --export-debug "Android" "$GITHUB_WORKSPACE/builds/fingermoba.apk" 2>&1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
