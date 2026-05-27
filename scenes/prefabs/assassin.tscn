@@ -1,0 +1,27 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/hero/hero_base.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/heroes/assassin_stats.tres" id="2"]
+[ext_resource type="Script" path="res://scripts/hero/skills/assassin_blink.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/hero/skills/assassin_combo.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/ai/bot_controller.gd" id="5"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
+radius = 16.0
+height = 35.0
+
+[node name="HeroBase" type="CharacterBody2D"]
+script = ExtResource("1")
+stats = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CapsuleShape2D_1")
+
+[node name="AssassinBlink" type="Node" parent="."]
+script = ExtResource("3")
+
+[node name="AssassinCombo" type="Node" parent="."]
+script = ExtResource("4")
+
+[node name="BotController" type="Node" parent="."]
+script = ExtResource("5")

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="16" fill="#1a2a1a"/>
+  <polygon points="64,20 108,108 20,108" fill="#44ff88" opacity="0.9"/>
+  <circle cx="64" cy="64" r="20" fill="#22cc55"/>
+  <text x="64" y="118" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#88ff99">MOBA</text>
+</svg>

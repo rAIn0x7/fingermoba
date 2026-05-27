@@ -1,0 +1,17 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/hero/hero_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+hero_name = "法师"
+max_hp = 700.0
+attack = 45.0
+move_speed = 185.0
+attack_speed = 0.7
+attack_range = 150.0
+physical_armor = 0.0
+magic_resist = 0.1
+hp_per_level = 65.0
+attack_per_level = 3.0
+color = Color(0.6, 0.15, 0.85, 1)

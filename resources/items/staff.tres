@@ -1,0 +1,12 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/economy/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_name = "法杖"
+cost = 600
+bonus_attack = 0.0
+bonus_hp = 0.0
+bonus_magic_power = 40.0
+bonus_move_speed = 0.0
