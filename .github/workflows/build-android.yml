@@ -87,11 +87,11 @@ jobs:
       - name: Verify tools
         run: |
           echo "=== jarsigner ==="
-          which jarsigner && jarsigner -version
+          which jarsigner || echo "jarsigner not found"
           echo "=== zipalign ==="
-          find "$ANDROID_HOME/build-tools" -name zipalign 2>/dev/null | head -1
+          find "$ANDROID_HOME/build-tools" -name zipalign 2>/dev/null | head -1 || echo "zipalign not found"
           echo "=== aapt ==="
-          find "$ANDROID_HOME/build-tools" -name aapt 2>/dev/null | head -1
+          find "$ANDROID_HOME/build-tools" -name aapt 2>/dev/null | head -1 || echo "aapt not found"
 
       - name: Import project
         run: |
