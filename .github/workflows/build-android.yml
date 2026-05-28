@@ -5,52 +5,83 @@ on:
     branches: [master]
   workflow_dispatch:
 
+env:
+  GODOT_VERSION: "4.3"
+
 jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
-    container:
-      image: barichello/godot-ci:4.3
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Godot environment
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android tools
         run: |
-          echo "HOME=$HOME, ANDROID_HOME=$ANDROID_HOME"
-          # Check container keystore
-          ls /root/debug.keystore 2>/dev/null && echo "container keystore OK" || echo "no container keystore"
+          sdkmanager --install \
+            "platform-tools" \
+            "ndk;23.2.8568313" \
+            "build-tools;34.0.0" \
+            "platforms;android-34"
 
-          # Find Java home
-          JAVA_BASE=$(dirname "$(dirname "$(readlink -f "$(which java)")")")
-          echo "Java: $JAVA_BASE"
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          wget -q "https://github.com/godotengine/godot-builds/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_linux.x86_64.zip" -O godot.zip
+          unzip -q godot.zip
+          sudo mv "Godot_v${{ env.GODOT_VERSION }}-stable_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
 
-          # Copy export templates from container root to runner home
-          mkdir -p "$HOME/.local/share/godot/export_templates"
-          cp -r /root/.local/share/godot/export_templates/4.3.stable \
-            "$HOME/.local/share/godot/export_templates/4.3.stable"
-          ls "$HOME/.local/share/godot/export_templates/4.3.stable/" | grep android
+      - name: Install Godot export templates
+        run: |
+          wget -q "https://github.com/godotengine/godot-builds/releases/download/${{ env.GODOT_VERSION }}-stable/Godot_v${{ env.GODOT_VERSION }}-stable_export_templates.tpz" -O templates.tpz
+          unzip -q templates.tpz -d /tmp/tmpl
+          TMPL_DIR="$HOME/.local/share/godot/export_templates/$(cat /tmp/tmpl/templates/version.txt)"
+          mkdir -p "$TMPL_DIR"
+          mv /tmp/tmpl/templates/* "$TMPL_DIR/"
+          ls "$TMPL_DIR/" | grep android
 
-          # Write editor settings — filename MUST be editor_settings-4.3.tres (minor version)
-          mkdir -p "$HOME/.config/godot"
+      - name: Generate debug keystore
+        run: |
+          keytool -keyalg RSA -genkeypair \
+            -alias androiddebugkey -keypass android \
+            -keystore "$GITHUB_WORKSPACE/debug.keystore" \
+            -storepass android -dname "CN=Android Debug,O=Android,C=US" \
+            -validity 9999 -deststoretype pkcs12
+
+      - name: Configure Godot editor settings
+        run: |
+          mkdir -p ~/.config/godot
+          # Filename MUST include minor version: editor_settings-4.3.tres
+          # Keys: android_sdk_path, java_sdk_path, debug_keystore (all registered via EDITOR_DEF in Godot 4.3)
           printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\nexport/android/debug_keystore = "%s"\nexport/android/debug_keystore_user = "androiddebugkey"\nexport/android/debug_keystore_pass = "android"\n' \
-            "${ANDROID_HOME:-/usr/lib/android-sdk}" \
-            "$JAVA_BASE" \
-            "/root/debug.keystore" \
-            > "$HOME/.config/godot/editor_settings-4.3.tres"
-          echo "=== editor_settings-4.3.tres ==="
-          cat "$HOME/.config/godot/editor_settings-4.3.tres"
+            "$ANDROID_HOME" \
+            "$JAVA_HOME" \
+            "$GITHUB_WORKSPACE/debug.keystore" \
+            > ~/.config/godot/editor_settings-4.3.tres
+          cat ~/.config/godot/editor_settings-4.3.tres
+
+      - name: Patch export preset keystore path
+        run: |
+          sed -i "s|keystore/debug=\"debug.keystore\"|keystore/debug=\"$GITHUB_WORKSPACE/debug.keystore\"|" export_presets.cfg
 
       - name: Import project
         run: |
           timeout 120 godot --headless --editor --quit 2>&1 || true
-          ls .godot/ 2>/dev/null || echo "No .godot dir"
 
       - name: Build Debug APK
         run: |
           mkdir -p builds
-          godot --headless --verbose --export-debug "Android" "builds/fingermoba.apk" 2>&1
+          godot --headless --verbose --export-debug "Android" "$GITHUB_WORKSPACE/builds/fingermoba.apk" 2>&1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
