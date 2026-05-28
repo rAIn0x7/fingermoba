@@ -169,6 +169,17 @@ func _spawn_tower(team: int, pos: Vector2) -> void:
 	tower.global_position = pos
 	tower.team = team
 	tower.add_to_group("team_%d" % team)
+	var color = Color(0.2, 0.5, 1.0, 1) if team == GameManager.Team.RADIANT else Color(1.0, 0.2, 0.2, 1)
+	var vis = ColorRect.new()
+	vis.size = Vector2(56, 72)
+	vis.position = Vector2(-28, -60)
+	vis.color = color
+	tower.add_child(vis)
+	var top = ColorRect.new()
+	top.size = Vector2(36, 20)
+	top.position = Vector2(-18, -80)
+	top.color = color.lightened(0.3)
+	tower.add_child(top)
 
 func _spawn_crystal(team: int, pos: Vector2) -> void:
 	var crystal = CRYSTAL_SCENE.instantiate() as Crystal
@@ -176,3 +187,14 @@ func _spawn_crystal(team: int, pos: Vector2) -> void:
 	crystal.global_position = pos
 	crystal.team = team
 	crystal.add_to_group("team_%d" % team)
+	var color = Color(0.1, 1.0, 0.3, 1) if team == GameManager.Team.RADIANT else Color(1.0, 0.1, 0.1, 1)
+	var vis = ColorRect.new()
+	vis.size = Vector2(80, 80)
+	vis.position = Vector2(-40, -40)
+	vis.color = color
+	crystal.add_child(vis)
+	var gem = ColorRect.new()
+	gem.size = Vector2(40, 40)
+	gem.position = Vector2(-20, -20)
+	gem.color = color.lightened(0.4)
+	crystal.add_child(gem)

@@ -22,23 +22,37 @@ func _process(delta: float) -> void:
 	_attack_timer -= delta
 	if _attack_timer > 0.0:
 		return
-	var target = _find_nearest_enemy_hero()
+	var target = _find_nearest_enemy()
 	if target == null:
 		return
-	target.take_damage(attack)
+	if target is HeroBase:
+		(target as HeroBase).take_damage(attack)
+	elif target is MinionController:
+		(target as MinionController).take_damage(attack, null)
 	_attack_timer = attack_cooldown
 
-func _find_nearest_enemy_hero() -> HeroBase:
-	var best: HeroBase = null
+func _find_nearest_enemy() -> Node:
+	var best: Node = null
 	var best_dist = INF
-	for node in get_tree().get_nodes_in_group("heroes"):
-		var hero = node as HeroBase
-		if hero == null or hero.team == team or hero.is_dead:
+	# Prioritize minions (standard MOBA tower behavior)
+	for node in get_tree().get_nodes_in_group("minions"):
+		var m = node as MinionController
+		if m == null or m.team == team or m.is_dead:
 			continue
-		var d = global_position.distance_to(hero.global_position)
+		var d = global_position.distance_to(m.global_position)
 		if d <= attack_range and d < best_dist:
 			best_dist = d
-			best = hero
+			best = m
+	if best != null:
+		return best
+	for node in get_tree().get_nodes_in_group("heroes"):
+		var h = node as HeroBase
+		if h == null or h.team == team or h.is_dead:
+			continue
+		var d = global_position.distance_to(h.global_position)
+		if d <= attack_range and d < best_dist:
+			best_dist = d
+			best = h
 	return best
 
 func take_damage(damage: float, is_magic: bool = false) -> void:

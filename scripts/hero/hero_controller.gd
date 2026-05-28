@@ -33,7 +33,8 @@ func _handle_movement() -> void:
 func _handle_attack(delta: float) -> void:
 	_attack_timer -= delta
 	if _locked_target == null or _locked_target.is_dead:
-		_locked_target = null
+		_locked_target = _hero.find_nearest_enemy(_hero.stats.attack_range)
+	if _locked_target == null:
 		return
 	var dist = _hero.global_position.distance_to(_locked_target.global_position)
 	if dist > _hero.stats.attack_range or _attack_timer > 0.0:
