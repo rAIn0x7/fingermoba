@@ -1,240 +1,209 @@
-/* FingerMOBA — Phaser 垂直切片(指尖刀塔风)。纯形状渲染,秒开。 */
+/* FingerMOBA → 幸存者生存(Survivor.io 风)。Phaser,纯形状,秒开。
+   单手走位(按住朝手指方向 / WASD)+ 自动开火 + 怪潮 + 升级三选一 + 越活越强。 */
 const W = 540, H = 960;
-const COL = {
-  allyHero: 0x3aa0ff, enemyHero: 0xff5a5a,
-  allyMin: 0x7fd0ff, enemyMin: 0xffa0a0,
-  allyStruct: 0x2f7fd0, enemyStruct: 0xd04a4a,
-  lane: 0x12351a, bg: 0x0a160c, hpFill: 0x66e06a, hpBack: 0x222
-};
 
 class Game extends Phaser.Scene {
   constructor() { super('game'); }
 
   create() {
-    this.over = false;
-    this.units = [];
-    this.skillCd = 0; this.skillMax = 5;
+    this.over = false; this.paused = false;
+    this.enemies = []; this.projs = []; this.gems = [];
+    this.elapsed = 0; this.kills = 0; this.level = 1; this.xp = 0; this.xpNeed = 5;
+    this.fireT = 0; this.spawnT = 0.5;
+    this.stats = { dmg: 16, fireCd: 0.55, projSpeed: 540, projCount: 1, pierce: 0, moveSpeed: 235, pickup: 78 };
 
-    // 背景 + 中路
-    this.add.rectangle(W/2, H/2, W, H, COL.bg).setDepth(-2);
-    this.add.rectangle(W/2, H/2, 150, H, COL.lane).setDepth(-1);
-    for (let y = 90; y < H; y += 90) this.add.rectangle(W/2, y, 150, 2, 0x1c4a26).setDepth(-1);
+    this.add.rectangle(W/2, H/2, W, H, 0x0b1020).setDepth(-2);
+    for (let gx = 60; gx < W; gx += 60) this.add.rectangle(gx, H/2, 1, H, 0x16203a).setDepth(-1);
+    for (let gy = 60; gy < H; gy += 60) this.add.rectangle(W/2, gy, W, 1, 0x16203a).setDepth(-1);
 
-    // 建筑:水晶(胜负目标)+ 塔
-    this.enemyCrystal = this.mkStruct('enemy', W/2, 64, 'crystal', 2600, '敌方水晶');
-    this.allyCrystal  = this.mkStruct('ally',  W/2, H-64, 'crystal', 2600, '你的水晶');
-    this.mkStruct('enemy', W/2, 250, 'tower', 1600, '塔');
-    this.mkStruct('ally',  W/2, H-250, 'tower', 1600, '塔');
+    this.player = { x: W/2, y: H/2, r: 15, hp: 100, maxHp: 100 };
+    this.player.obj = this.add.circle(this.player.x, this.player.y, 15, 0x3aa0ff).setStrokeStyle(3, 0xffffff).setDepth(5);
 
-    // 英雄
-    this.hero = this.mkHero('ally', W/2, H-150);
-    this.enemyHero = this.mkHero('enemy', W/2, 150);
-    this.moveTarget = null;
-
-    // 输入:点击/拖动移动 + 技能键
-    this.input.on('pointerdown', (p) => {
-      if (this.over) return;
-      if (this.skillHit(p.x, p.y)) { this.castSkill(); return; }
-      this.moveTarget = { x: p.worldX, y: p.worldY };
-    });
-    this.input.on('pointermove', (p) => {
-      if (!this.over && p.isDown && !this.skillHit(p.x, p.y)) this.moveTarget = { x: p.worldX, y: p.worldY };
-    });
+    // 输入:按住朝手指方向移动 / WASD
     this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
-    this.input.keyboard.on('keydown-Q', () => this.castSkill());
-    this.input.keyboard.on('keydown-SPACE', () => this.castSkill());
-
-    // 小兵波次
-    this.time.addEvent({ delay: 7000, loop: true, callback: () => this.spawnWave() });
-    this.spawnWave();
 
     this.makeHUD();
     const boot = document.getElementById('boot'); if (boot) boot.remove();
   }
 
-  // ---------- 工厂 ----------
-  mkUnit(o) {
-    o.dead = false; o.cd = 0; o.hp = o.maxHp;
-    o.hpBg = this.add.rectangle(o.x, o.y - o.r - 8, o.r * 2, 5, COL.hpBack).setDepth(5);
-    o.hpFill = this.add.rectangle(o.x - o.r, o.y - o.r - 8, o.r * 2, 5, COL.hpFill).setOrigin(0, 0.5).setDepth(6);
-    this.units.push(o);
-    return o;
-  }
-  mkHero(team, x, y) {
-    const c = team === 'ally' ? COL.allyHero : COL.enemyHero;
-    const obj = this.add.circle(x, y, 18, c).setStrokeStyle(3, 0xffffff).setDepth(4);
-    return this.mkUnit({ kind: 'hero', team, x, y, r: 18, obj, maxHp: 900, atk: 60, range: 95, speed: 175, cdMax: 0.9, spawn: { x, y } });
-  }
-  mkMinion(team, x, y) {
-    const c = team === 'ally' ? COL.allyMin : COL.enemyMin;
-    const obj = this.add.circle(x, y, 9, c).setDepth(3);
-    return this.mkUnit({ kind: 'minion', team, x, y, r: 9, obj, maxHp: 120, atk: 14, range: 60, speed: 95, cdMax: 1.0 });
-  }
-  mkStruct(team, x, y, kind, hp, label) {
-    const c = team === 'ally' ? COL.allyStruct : COL.enemyStruct;
-    const big = kind === 'crystal';
-    const size = big ? 64 : 46;
-    let obj;
-    if (big) { obj = this.add.star(x, y, 6, size*0.4, size*0.62, c).setStrokeStyle(3, 0xffffff).setDepth(2); }
-    else { obj = this.add.rectangle(x, y, size, size, c).setStrokeStyle(2, 0x000000).setDepth(2); }
-    const u = this.mkUnit({ kind, team, x, y, r: size/2, obj, maxHp: hp, atk: 45, range: 130, speed: 0, cdMax: 1.1, structure: true });
-    if (label) this.add.text(x, y + (big?44:30), label, { fontSize: '11px', color: '#cfe' }).setOrigin(0.5).setDepth(5);
-    return u;
-  }
-  spawnWave() {
-    if (this.over) return;
-    for (let i = 0; i < 3; i++) {
-      this.mkMinion('ally',  W/2 + (i-1)*26, H-200 + i*14);
-      this.mkMinion('enemy', W/2 + (i-1)*26, 200 - i*14);
-    }
-  }
-
-  // ---------- 主循环 ----------
   update(_t, dms) {
-    if (this.over) return;
+    if (this.over || this.paused) return;
     const dt = Math.min(dms, 50) / 1000;
-    this.skillCd = Math.max(0, this.skillCd - dt);
+    this.elapsed += dt;
+    this.moverPlayer(dt);
+    this.spawn(dt);
+    this.moveEnemies(dt);
+    this.fire(dt);
+    this.moveProjs(dt);
+    this.moveGems(dt);
     this.updateHUD();
-    this.controlHero(dt);
-    for (const u of this.units) if (!u.dead && u.kind !== 'hero' || (u.kind === 'hero' && u.team === 'enemy')) {
-      // 玩家英雄单独处理移动;其余(含敌方英雄)走 AI
-      if (!(u === this.hero)) this.aiUnit(u, dt);
-    }
-    for (const u of this.units) if (!u.dead) this.syncBars(u);
-    this.cleanup();
   }
 
-  controlHero(dt) {
-    const h = this.hero; if (h.dead) return;
-    let vx = 0, vy = 0;
-    const k = this.keys;
+  // ---------- 玩家 ----------
+  moverPlayer(dt) {
+    const p = this.player; let vx = 0, vy = 0, k = this.keys;
     if (k.A.isDown || k.LEFT.isDown) vx -= 1;
     if (k.D.isDown || k.RIGHT.isDown) vx += 1;
     if (k.W.isDown || k.UP.isDown) vy -= 1;
     if (k.S.isDown || k.DOWN.isDown) vy += 1;
-    if (vx || vy) {
-      const len = Math.hypot(vx, vy); h.x += (vx/len)*h.speed*dt; h.y += (vy/len)*h.speed*dt; this.moveTarget = null;
-    } else if (this.moveTarget) {
-      const d = Phaser.Math.Distance.Between(h.x, h.y, this.moveTarget.x, this.moveTarget.y);
-      if (d > 6) { const a = Phaser.Math.Angle.Between(h.x, h.y, this.moveTarget.x, this.moveTarget.y);
-        h.x += Math.cos(a)*h.speed*dt; h.y += Math.sin(a)*h.speed*dt; } else this.moveTarget = null;
+    const ptr = this.input.activePointer;
+    if (!vx && !vy && ptr.isDown) {
+      const a = Phaser.Math.Angle.Between(p.x, p.y, ptr.worldX, ptr.worldY);
+      if (Phaser.Math.Distance.Between(p.x, p.y, ptr.worldX, ptr.worldY) > 6) { vx = Math.cos(a); vy = Math.sin(a); }
     }
-    h.x = Phaser.Math.Clamp(h.x, 20, W-20); h.y = Phaser.Math.Clamp(h.y, 20, H-20);
-    h.obj.x = h.x; h.obj.y = h.y;
-    // 自动攻击最近敌人
-    this.tryAttack(h, dt);
+    if (vx || vy) { const l = Math.hypot(vx, vy); p.x += (vx/l)*this.stats.moveSpeed*dt; p.y += (vy/l)*this.stats.moveSpeed*dt; }
+    p.x = Phaser.Math.Clamp(p.x, 16, W-16); p.y = Phaser.Math.Clamp(p.y, 60, H-90);
+    p.obj.x = p.x; p.obj.y = p.y;
   }
 
-  aiUnit(u, dt) {
-    const tgt = this.nearestEnemy(u, u.structure ? u.range : 220);
-    if (u.structure) { this.tryAttack(u, dt); return; }
-    // 有近敌则打,否则朝敌方水晶推进
-    if (tgt && Phaser.Math.Distance.Between(u.x, u.y, tgt.x, tgt.y) <= u.range) { this.tryAttack(u, dt); }
-    else {
-      const goal = tgt || (u.team === 'ally' ? this.enemyCrystal : this.allyCrystal);
-      if (goal && !goal.dead) { const a = Phaser.Math.Angle.Between(u.x, u.y, goal.x, goal.y);
-        u.x += Math.cos(a)*u.speed*dt; u.y += Math.sin(a)*u.speed*dt; u.obj.x = u.x; u.obj.y = u.y;
-        if (Phaser.Math.Distance.Between(u.x, u.y, goal.x, goal.y) <= u.range) this.tryAttack(u, dt); }
+  // ---------- 敌人 ----------
+  spawn(dt) {
+    this.spawnT -= dt;
+    if (this.spawnT > 0 || this.enemies.length > 140) return;
+    this.spawnT = Math.max(0.28, 1.3 - this.elapsed * 0.012);
+    const n = 1 + Math.floor(this.elapsed / 25);
+    for (let i = 0; i < n; i++) this.spawnEnemy(this.elapsed > 30 && Math.random() < 0.12);
+  }
+  spawnEnemy(big) {
+    const edge = Math.floor(Math.random()*4);
+    let x, y;
+    if (edge === 0) { x = Math.random()*W; y = -20; }
+    else if (edge === 1) { x = Math.random()*W; y = H+20; }
+    else if (edge === 2) { x = -20; y = Math.random()*H; }
+    else { x = W+20; y = Math.random()*H; }
+    const hpBase = 18 + this.elapsed * 1.4;
+    const e = big
+      ? { x, y, r: 22, hp: hpBase*6, maxHp: hpBase*6, speed: 42 + this.elapsed*0.25, dmg: 22, xp: 5, big: true }
+      : { x, y, r: 11, hp: hpBase,  maxHp: hpBase,  speed: 58 + this.elapsed*0.55, dmg: 12, xp: 1 };
+    e.speed = Math.min(e.speed, 150);
+    e.obj = this.add.circle(x, y, e.r, big ? 0x8a1f1f : 0xff5a5a).setStrokeStyle(2, 0x551111).setDepth(3);
+    this.enemies.push(e);
+  }
+  moveEnemies(dt) {
+    const p = this.player;
+    for (const e of this.enemies) {
+      const a = Phaser.Math.Angle.Between(e.x, e.y, p.x, p.y);
+      e.x += Math.cos(a)*e.speed*dt; e.y += Math.sin(a)*e.speed*dt;
+      e.obj.x = e.x; e.obj.y = e.y;
+      if (Phaser.Math.Distance.Between(e.x, e.y, p.x, p.y) < e.r + p.r) {
+        this.player.hp -= e.dmg * dt;
+        if (this.player.hp <= 0) return this.end();
+      }
     }
   }
 
-  tryAttack(u, dt) {
-    u.cd = Math.max(0, u.cd - dt);
-    const tgt = this.nearestEnemy(u, u.range);
-    if (!tgt || u.cd > 0) return;
-    this.damage(tgt, u.atk, u);
-    u.cd = u.cdMax;
-    this.zap(u, tgt);
-  }
-
-  nearestEnemy(u, range) {
-    let best = null, bd = range;
-    for (const e of this.units) {
-      if (e.dead || e.team === u.team) continue;
-      const d = Phaser.Math.Distance.Between(u.x, u.y, e.x, e.y) - e.r;
-      if (d <= bd) { bd = d; best = e; }
+  // ---------- 开火(自动瞄最近) ----------
+  fire(dt) {
+    this.fireT -= dt;
+    if (this.fireT > 0 || this.enemies.length === 0) return;
+    this.fireT = this.stats.fireCd;
+    const tgt = this.nearest(this.player.x, this.player.y);
+    if (!tgt) return;
+    const base = Phaser.Math.Angle.Between(this.player.x, this.player.y, tgt.x, tgt.y);
+    const n = this.stats.projCount, spread = 0.18;
+    for (let i = 0; i < n; i++) {
+      const a = base + (i - (n-1)/2) * spread;
+      const obj = this.add.circle(this.player.x, this.player.y, 5, 0x9fe0ff).setDepth(4);
+      this.projs.push({ x: this.player.x, y: this.player.y, vx: Math.cos(a)*this.stats.projSpeed, vy: Math.sin(a)*this.stats.projSpeed, life: 1.2, pierce: this.stats.pierce, obj });
     }
+  }
+  nearest(x, y) {
+    let best = null, bd = 1e9;
+    for (const e of this.enemies) { const d = Phaser.Math.Distance.Between(x, y, e.x, e.y); if (d < bd) { bd = d; best = e; } }
     return best;
   }
-
-  damage(t, amt, src) {
-    if (t.dead) return;
-    t.hp -= amt;
-    t.obj.setScale(1.12); this.time.delayedCall(70, () => { if (t.obj && t.obj.active) t.obj.setScale(1); });
-    if (t.hp <= 0) this.die(t);
-  }
-
-  die(t) {
-    t.dead = true;
-    if (t.obj) t.obj.destroy(); if (t.hpBg) t.hpBg.destroy(); if (t.hpFill) t.hpFill.destroy();
-    if (t === this.enemyCrystal) return this.end(true);
-    if (t === this.allyCrystal) return this.end(false);
-    if (t.kind === 'hero') {  // 英雄复活
-      t.dead = false; t.hp = t.maxHp;
-      this.time.delayedCall(5000, () => {
-        t.x = t.spawn.x; t.y = t.spawn.y; t.hp = t.maxHp;
-        const c = t.team === 'ally' ? COL.allyHero : COL.enemyHero;
-        t.obj = this.add.circle(t.x, t.y, t.r, c).setStrokeStyle(3, 0xffffff).setDepth(4);
-        t.hpBg = this.add.rectangle(t.x, t.y - t.r - 8, t.r*2, 5, COL.hpBack).setDepth(5);
-        t.hpFill = this.add.rectangle(t.x - t.r, t.y - t.r - 8, t.r*2, 5, COL.hpFill).setOrigin(0,0.5).setDepth(6);
-      });
+  moveProjs(dt) {
+    for (const pr of this.projs) {
+      pr.x += pr.vx*dt; pr.y += pr.vy*dt; pr.life -= dt; pr.obj.x = pr.x; pr.obj.y = pr.y;
+      if (pr.life <= 0 || pr.x < -30 || pr.x > W+30 || pr.y < -30 || pr.y > H+30) { pr.dead = true; continue; }
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        if (Phaser.Math.Distance.Between(pr.x, pr.y, e.x, e.y) < e.r + 5) {
+          e.hp -= this.stats.dmg;
+          e.obj.setFillStyle(0xffffff); this.time.delayedCall(50, () => { if (e.obj && e.obj.active && !e.dead) e.obj.setFillStyle(e.big?0x8a1f1f:0xff5a5a); });
+          if (e.hp <= 0) this.killEnemy(e);
+          if (pr.pierce > 0) pr.pierce--; else { pr.dead = true; }
+          break;
+        }
+      }
     }
+    this.projs = this.projs.filter(pr => { if (pr.dead) pr.obj.destroy(); return !pr.dead; });
+  }
+  killEnemy(e) {
+    e.dead = true; this.kills++;
+    const g = this.add.circle(e.x, e.y, e.big?7:4, 0x8affc0).setDepth(2);
+    this.gems.push({ x: e.x, y: e.y, xp: e.xp, obj: g });
+    e.obj.destroy();
+    this.enemies = this.enemies.filter(en => !en.dead);
   }
 
-  zap(u, t) {
-    const g = this.add.line(0, 0, u.x, u.y, t.x, t.y, u.team === 'ally' ? 0x9fe0ff : 0xffc0c0).setOrigin(0).setLineWidth(u.kind==='hero'?2.5:1).setDepth(3).setAlpha(0.8);
-    this.time.delayedCall(90, () => g.destroy());
-  }
-
-  castSkill() {
-    if (this.over || this.skillCd > 0 || this.hero.dead) return;
-    this.skillCd = this.skillMax;
-    const radius = 130;
-    const ring = this.add.circle(this.hero.x, this.hero.y, radius, 0x6fd0ff, 0.28).setDepth(3);
-    this.tweens.add({ targets: ring, scale: 1.2, alpha: 0, duration: 320, onComplete: () => ring.destroy() });
-    for (const e of this.units) {
-      if (e.dead || e.team === 'ally') continue;
-      if (Phaser.Math.Distance.Between(this.hero.x, this.hero.y, e.x, e.y) <= radius + e.r) this.damage(e, 160, this.hero);
+  // ---------- 经验 / 升级 ----------
+  moveGems(dt) {
+    const p = this.player;
+    for (const gm of this.gems) {
+      const d = Phaser.Math.Distance.Between(gm.x, gm.y, p.x, p.y);
+      if (d < this.stats.pickup) {
+        const a = Phaser.Math.Angle.Between(gm.x, gm.y, p.x, p.y);
+        gm.x += Math.cos(a)*420*dt; gm.y += Math.sin(a)*420*dt; gm.obj.x = gm.x; gm.obj.y = gm.y;
+        if (d < p.r + 4) { gm.got = true; this.xp += gm.xp; gm.obj.destroy(); if (this.xp >= this.xpNeed) this.levelUp(); }
+      }
     }
+    this.gems = this.gems.filter(gm => !gm.got);
+  }
+  levelUp() {
+    this.xp -= this.xpNeed; this.level++; this.xpNeed = Math.floor(this.xpNeed * 1.45 + 3);
+    this.player.hp = Math.min(this.player.maxHp, this.player.hp + 15);
+    this.paused = true;
+    const pool = [
+      { t: '⚔ 伤害 +25%', f: () => this.stats.dmg *= 1.25 },
+      { t: '🔥 攻速 +20%', f: () => this.stats.fireCd *= 0.82 },
+      { t: '➕ 多一发子弹', f: () => this.stats.projCount += 1 },
+      { t: '🏃 移速 +12%', f: () => this.stats.moveSpeed *= 1.12 },
+      { t: '❤ 上限+25 并回满', f: () => { this.player.maxHp += 25; this.player.hp = this.player.maxHp; } },
+      { t: '🧲 拾取范围 +40%', f: () => this.stats.pickup *= 1.4 },
+      { t: '🎯 子弹穿透 +1', f: () => this.stats.pierce += 1 },
+    ];
+    Phaser.Utils.Array.Shuffle(pool);
+    const pick = pool.slice(0, 3);
+    const layer = [];
+    layer.push(this.add.rectangle(W/2, H/2, W, H, 0x000, 0.72).setDepth(20));
+    layer.push(this.add.text(W/2, H/2-200, `Lv.${this.level} 升级！三选一`, { fontSize: '24px', color: '#9fe07a', fontStyle: 'bold' }).setOrigin(0.5).setDepth(21));
+    pick.forEach((u, i) => {
+      const cy = H/2 - 90 + i*110;
+      const card = this.add.rectangle(W/2, cy, 380, 90, 0x1c2b4a).setStrokeStyle(2, 0x6fd0ff).setDepth(21).setInteractive();
+      const txt = this.add.text(W/2, cy, u.t, { fontSize: '22px', color: '#fff' }).setOrigin(0.5).setDepth(22);
+      card.on('pointerdown', () => { u.f(); layer.forEach(o => o.destroy()); card.destroy(); txt.destroy(); this.paused = false; });
+      layer.push(card, txt);
+    });
   }
 
-  // ---------- HUD ----------
+  // ---------- HUD / 结算 ----------
   makeHUD() {
-    this.add.text(W/2, 14, 'FINGERMOBA', { fontSize: '15px', color: '#9fe07a', fontStyle: 'bold' }).setOrigin(0.5,0).setDepth(10);
-    this.add.text(W/2, H-26, '点击/拖动移动 · WASD · Q 放大招 · 推掉敌方水晶获胜', { fontSize: '11px', color: '#7a9' }).setOrigin(0.5,0).setDepth(10);
-    this.skillBtn = this.add.circle(W-70, H-110, 40, 0x244, 0.9).setStrokeStyle(3, 0x6fd0ff).setDepth(10);
-    this.skillTxt = this.add.text(W-70, H-110, 'Q', { fontSize: '22px', color: '#cfe' }).setOrigin(0.5).setDepth(11);
-    this.skillCover = this.add.rectangle(W-70, H-110, 80, 80, 0x000, 0.55).setDepth(10);
+    this.add.rectangle(W/2, 18, W-30, 16, 0x222).setDepth(10);
+    this.hpFill = this.add.rectangle(16, 18, W-30, 16, 0xff5a5a).setOrigin(0,0.5).setDepth(11);
+    this.add.rectangle(W/2, 40, W-30, 10, 0x222).setDepth(10);
+    this.xpFill = this.add.rectangle(16, 40, 0, 10, 0x8affc0).setOrigin(0,0.5).setDepth(11);
+    this.info = this.add.text(W/2, 58, '', { fontSize: '15px', color: '#cde' }).setOrigin(0.5,0).setDepth(11);
+    this.add.text(W/2, H-24, '按住朝手指方向移动 · WASD · 自动开火 · 活得越久越强', { fontSize: '11px', color: '#7a9' }).setOrigin(0.5,0).setDepth(10);
   }
-  skillHit(x, y) { return Phaser.Math.Distance.Between(x, y, W-70, H-110) <= 46; }
   updateHUD() {
-    const r = this.skillCd / this.skillMax;
-    this.skillCover.setScale(1, r); this.skillCover.y = (H-110) - 40 + (80*r)/2;
-    this.skillTxt.setText(this.skillCd > 0 ? Math.ceil(this.skillCd) : 'Q');
+    this.hpFill.width = (W-30) * Math.max(0, this.player.hp / this.player.maxHp);
+    this.xpFill.width = (W-30) * Math.max(0, this.xp / this.xpNeed);
+    this.info.setText(`Lv.${this.level}   ⏱ ${Math.floor(this.elapsed)}s   💀 ${this.kills}`);
   }
-  syncBars(u) {
-    if (!u.hpBg) return;
-    u.hpBg.x = u.x; u.hpBg.y = u.y - u.r - 8;
-    u.hpFill.x = u.x - u.r; u.hpFill.y = u.y - u.r - 8;
-    u.hpFill.width = (u.r*2) * Math.max(0, u.hp / u.maxHp);
-  }
-  cleanup() { this.units = this.units.filter(u => !u.dead || u.kind === 'hero'); }
-
-  end(win) {
+  end() {
     this.over = true;
-    this.add.rectangle(W/2, H/2, W, H, 0x000, 0.72).setDepth(20);
-    this.add.text(W/2, H/2-40, win ? '胜利 🏆' : '失败', { fontSize: '46px', color: win ? '#9fe07a' : '#ff7a7a', fontStyle: 'bold' }).setOrigin(0.5).setDepth(21);
-    this.add.text(W/2, H/2+18, win ? '你推掉了敌方水晶' : '水晶被摧毁了', { fontSize: '15px', color: '#cde' }).setOrigin(0.5).setDepth(21);
-    const btn = this.add.rectangle(W/2, H/2+90, 180, 56, 0x2f7fd0).setStrokeStyle(2, 0xfff).setDepth(21).setInteractive();
-    this.add.text(W/2, H/2+90, '再来一局', { fontSize: '20px', color: '#fff' }).setOrigin(0.5).setDepth(22);
+    this.add.rectangle(W/2, H/2, W, H, 0x000, 0.78).setDepth(30);
+    this.add.text(W/2, H/2-70, '你倒下了', { fontSize: '40px', color: '#ff7a7a', fontStyle: 'bold' }).setOrigin(0.5).setDepth(31);
+    this.add.text(W/2, H/2-10, `存活 ${Math.floor(this.elapsed)} 秒 · Lv.${this.level} · 击杀 ${this.kills}`, { fontSize: '17px', color: '#cde' }).setOrigin(0.5).setDepth(31);
+    const btn = this.add.rectangle(W/2, H/2+70, 200, 60, 0x2f7fd0).setStrokeStyle(2, 0xfff).setDepth(31).setInteractive();
+    this.add.text(W/2, H/2+70, '再来一局', { fontSize: '22px', color: '#fff' }).setOrigin(0.5).setDepth(32);
     btn.on('pointerdown', () => this.scene.restart());
   }
 }
 
 new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: 'game',
-  backgroundColor: '#070d07',
+  type: Phaser.AUTO, parent: 'game', backgroundColor: '#0b1020',
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: W, height: H },
   scene: [Game]
 });
