@@ -1,0 +1,481 @@
+{
+  "summary": "Audit all personal-track assets (4 sites + monetization + game) to find iteration opportunities",
+  "agentCount": 5,
+  "logs": [],
+  "result": {
+    "audits": [
+      {
+        "area": "Personal hub qizh.space (repo /home/test/Zion-site, GitHub Pages rAIn0x7/Zion-site)",
+        "current": "Live site is byte-identical to local repo (index.html 30196B, writing.html 6328B both diff-clean); last deploy commit 7c6e7b9 2026-06-03 (FingerMOBA tile). Pages: index, writing, about, privacy, 3 post-*.html + 1 orphaned post.html. Content: 3 original essays dated MAR/APR/MAY 2026 (newest \"Vibe Coding\" = MAY 11, 2026, post.html:291 → 30 days stale vs the \"每周一篇\" promise repeated on index.html:278 and writing.html:57); each essay only ~1,160-1,380 Chinese chars. AdSense script ca-pub-2184467660826262 on all 8 pages (line 8 of each) but ads.txt, sitemap.xml, robots.txt all 404 on live and absent from repo. CRITICAL: HTTPS is broken — https://qizh.space serves the fallback *.github.io cert (\"subjectAltName does not match qizh.space\", cert issued Apr 6 2026); curl exit 60 on qizh.space, www.qizh.space AND lens.qizh.space; only plain HTTP returns 200. DNS itself is correct (CNAME → rain0x7.github.io), so the GitHub Pages custom-domain cert was never provisioned or got dropped. Ventures: 4 tiles (index.html:251-254) but hero stat claims \"2 Ventures\" (index.html:228); FingerMOBA link returns 200 yet its live page loads Phaser 3.80.1 while the tile says \"3v3 MOBA…Godot 引擎\" (index.html:254); CryptoLens tile hardlinks https://lens.qizh.space which fails SSL. Subscribe form is fake — handleSubscribe (index.html:361) hides the form and shows success without sending anywhere; \"500+ Readers\" (index.html:229) and \"500+ builders & investors already reading\" (index.html:279) are unbacked claims. Contact = qq-mailto + GitHub only; zero 公众号/知识星球/WeChat presence anywhere (grep across *.html: no hits). SEO: title+meta description exist on main pages, but no OG/twitter tags, no canonical, no favicon on any page.",
+        "working": [
+          "Deploy pipeline healthy: live exactly matches local main (index+writing diff-identical), git tree clean apart from untracked .idea/ and ~7MB of local PNG screenshots",
+          "AdSense verification script present on all 8 HTML pages (ca-pub-2184467660826262, line 8 each)",
+          "privacy.html exists, linked in every footer, and covers Google/AdSense/cookies/advertising (5x AdSense, 6x cookie mentions)",
+          "3 genuinely original Chinese essays with consistent design, working internal links (writing.html:60-77 -> post-*.html all 200)",
+          "FingerMOBA tile target https://rain0x7.github.io/fingermoba/ returns 200 and the game loads (Phaser via CDN)",
+          "DNS is correctly configured: qizh.space CNAME -> rain0x7.github.io, www A-records to GitHub Pages IPs",
+          "Contact mailto (1733680684@qq.com, index.html:291) and GitHub link work; mobile nav + reduced-motion fallbacks implemented"
+        ],
+        "issues": [
+          {
+            "what": "HTTPS broken site-wide: https://qizh.space (and www + lens.qizh.space) serve the *.github.io fallback cert — browsers show a full security warning, so the site is effectively unreachable for normal visitors and the AdSense crawler. DNS is fine; the Pages custom-domain certificate needs re-provisioning (re-save custom domain / Enforce HTTPS in repo settings for BOTH Zion-site and the lens repo).",
+            "severity": "high"
+          },
+          {
+            "what": "ads.txt missing (http://qizh.space/ads.txt -> 404). AdSense flags this and can hold/limit approval. Needs one line: google.com, pub-2184467660826262, DIRECT, f08c47fec0942fa0",
+            "severity": "high"
+          },
+          {
+            "what": "Subscribe is a dead end: form at index.html:280 captures nothing (handleSubscribe index.html:361 just hides the form — comment admits 'wire to Substack/Supabase backend later'). Every interested reader is silently lost; no 公众号 QR, no 知识星球 link anywhere on the site — the entire paid funnel has zero entry point.",
+            "severity": "high"
+          },
+          {
+            "what": "Content stale for AdSense review: newest article May 11 2026 (~30 days ago) despite '每周一篇' promised in 3 places; only 3 essays at ~1.1-1.4k chars each (thin); orphaned post.html duplicates the Vibe Coding post title verbatim (duplicate-content risk).",
+            "severity": "med"
+          },
+          {
+            "what": "Dishonest/stale numbers and text: hero says '2 Ventures' but shows 4 tiles (index.html:228 vs 251-254); '500+ Readers'/'500+ builders already reading' (index.html:229,279) unbacked while subscribe has no backend; FingerMOBA tile describes 'Godot 3v3 MOBA' but the live game is a Phaser survivor (index.html:254); essay title still says '2025 怎么用 AI 给自己装杠杆' dated APR 2026.",
+            "severity": "med"
+          },
+          {
+            "what": "SEO gaps: no sitemap.xml, no robots.txt (both 404), no OG/twitter meta, no canonical, no favicon on any page; privacy.html lacks meta description. Hurts indexing and social sharing of articles.",
+            "severity": "med"
+          },
+          {
+            "what": "CryptoLens tile hardlinks https://lens.qizh.space (index.html:252) which currently fails SSL; only 1 of 3 Lens dashboards (Crypto) appears in the portfolio — StockLens/MetalLens absent.",
+            "severity": "low"
+          },
+          {
+            "what": "CLAUDE.md drift: documents Email/Twitter/WeChat contact links and 3-card Ventures, actual site has Email/GitHub/Writing and 4 tiles; repo carries ~7MB untracked PNG screenshots + .idea/",
+            "severity": "low"
+          }
+        ],
+        "iterations": [
+          {
+            "title": "Re-provision GitHub Pages HTTPS cert for qizh.space (re-save custom domain, wait for cert, enable Enforce HTTPS; repeat for the lens repo)",
+            "why": "Site is effectively down over HTTPS — blocks every visitor, the AdSense review crawler, and all downstream monetization; nothing else matters until this is fixed",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "Add ads.txt (google.com, pub-2184467660826262, DIRECT, f08c47fec0942fa0) plus sitemap.xml and robots.txt, push once",
+            "why": "ads.txt is an explicit AdSense approval requirement; sitemap/robots get the 3 essays indexed so the review sees a real content site",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "Make the subscribe path real: wire form to Formspree/Supabase OR replace with 公众号 QR + 知识星球 link in #subscribe and #contact",
+            "why": "Currently 100% of interested readers are lost; 知识星球 is the designated first-revenue channel and the site has no door to it",
+            "impact": "high",
+            "effort": "M"
+          },
+          {
+            "title": "Publish 1 new essay now (June) and commit to the weekly cadence already promised; unlink/delete orphan post.html",
+            "why": "AdSense review weighs fresh original content; last update 30 days ago contradicts the site's own weekly claim; duplicate post.html risks a low-value-content flag",
+            "impact": "high",
+            "effort": "M"
+          },
+          {
+            "title": "Honesty pass on stats and tiles: '2 Ventures'->4 (or auto-count), drop/replace the unbacked '500+' claims, fix FingerMOBA tile to 'Phaser survivor' wording, fix '2025' in essay title",
+            "why": "Fabricated numbers and wrong tech claims undermine the portfolio-quality goal and are an AdSense trust risk; 5-minute edits",
+            "impact": "med",
+            "effort": "S"
+          },
+          {
+            "title": "Add OG/twitter meta + canonical + favicon to all pages; add StockLens/MetalLens tiles once their certs work",
+            "why": "Essays shared to WeChat/X currently render with no preview card, throttling the 引流 loop that feeds 公众号/知识星球",
+            "impact": "med",
+            "effort": "S"
+          }
+        ]
+      },
+      {
+        "area": "CryptoLens dashboard — repo /home/test/CryptoLens-site (rAIn0x7/CryptoLens-site), live at lens.qizh.space (CNAME), Supabase backend uzvguynixndzusrlqryo.supabase.co",
+        "current": "Local repo in sync with origin/main @174fa41 (2026-06-01 \"Wire real Binance referral\"). Content pipeline ALIVE: articles_public holds 1,746 rows; newest published_at 2026-06-09T21:44:38 (~8h before audit, taken 2026-06-10T05:53Z); >=21 articles published in the prior ~13h; latest market_pulse row 2026-06-09T23:22Z (~6.5h old). BUT cadence is degraded: fetch.yml cron is '0 */2 * * *' (12 runs/day) yet market_pulse rows (written on every successful run) show only ~1-2 runs/day (06-08T04:25, 06-08T16:00, 06-09T23:22). CRITICAL: HTTPS is broken — https://lens.qizh.space serves the shared CN=*.github.io cert whose SAN does not include the domain (curl exits SSL error, HTTP 000; content only reachable with -k or plain HTTP, 200/9086B). qizh.space has the same broken cert; stocks.qizh.space has a proper CN=stocks.qizh.space cert (issued 2026-05-21), proving provisioning works per-site and lens/hub lost theirs. AdSense script (ca-pub-2184467660826262) is on all 6 pages but /ads.txt returns GitHub 404. Binance referral: sidebar uses real https://accounts.binance.com/register?ref=1216493484, but the site-wide floating button in assets/affiliate.js still points to https://www.bsmkweb.cc/register?ref=1216493484 (mirror domain). Pro checkout in assets/config.js is placeholder (LS_STORE='YOUR_STORE_SLUG').",
+        "working": [
+          "Content pipeline produces fresh daily content: newest article ~8h old at audit time, 1746 total articles, Gemini-scored (>=7 filter), bilingual summaries; market pulse 6.5h old",
+          "Feed error/empty-state resilience: loadFeed has try/catch + '加载失败/Retry' error card + '暂无内容' empty card (assets/app.js:213-221); BTC websocket retries 10x then falls back to REST polling every 10s; Fear&Greed and Price Snapshot fail-safe hide their blocks on error",
+          "Sidebar Binance referral is the real URL (accounts.binance.com/register?ref=1216493484) with click tracking into Supabase affiliate_clicks",
+          "Email subscribe CTA present in 3 places (sidebar box, nav Subscribe button, subscribe.html) backed by subscribers table + weekly Resend newsletter workflow",
+          "robots.txt and sitemap.xml live and valid; canonical + OG + JSON-LD WebSite on index; AdSense script tag on every page",
+          "Mobile nav regression already fixed: <=760px nav wraps with horizontal scroll-strip filters (style.css:1177-1185); brief items show 2-line clamp on touch devices; pulse hero stacks at <=900px",
+          "Local working tree clean vs origin/main; GitHub Pages deploy model intact (content does serve, evidenced by insecure fetch returning current index.html)"
+        ],
+        "issues": [
+          {
+            "what": "HTTPS is down for all real visitors: lens.qizh.space presents the *.github.io wildcard cert (SAN: github.io/github.com only — verified via openssl), so every https:// visit hits a full-page browser cert error. qizh.space hub has the same problem; stocks.qizh.space is fine. This alone will fail the pending AdSense review, kills shared links/SEO, and blocks Supabase/auth flows. Fix is GitHub repo Settings→Pages: remove + re-add custom domain to re-trigger cert provisioning, then Enforce HTTPS (DNS CNAME→rain0x7.github.io is already correct).",
+            "severity": "high"
+          },
+          {
+            "what": "ads.txt missing: https://lens.qizh.space/ads.txt is a GitHub 404 while adsbygoogle.js?client=ca-pub-2184467660826262 is loaded on all pages. Needs one-line file: 'google.com, pub-2184467660826262, DIRECT, f08c47fec0942fa0'.",
+            "severity": "high"
+          },
+          {
+            "what": "Pro upgrade checkout is a dead-end: assets/config.js still has LS_STORE='YOUR_STORE_SLUG' / placeholder variant IDs, so subscribe.html goCheckout() navigates to https://YOUR_STORE_SLUG.lemonsqueezy.com/... (DNS error). The only direct-revenue button on the property is broken.",
+            "severity": "high"
+          },
+          {
+            "what": "Referral link inconsistency: floating 'Trade on Binance' button (assets/affiliate.js:13) points to https://www.bsmkweb.cc/register?ref=1216493484 — a Binance mirror domain, not binance.com — despite commit 174fa41 claiming the real referral was wired (only the sidebar got it). Worse: on mobile (<900px) the sidebar is display:none, so mobile users ONLY ever see the bsmkweb.cc link. Mirror domains can die or get flagged as phishing.",
+            "severity": "med"
+          },
+          {
+            "what": "Pipeline cadence ~1-2 runs/day instead of the designed every-2h (market_pulse gaps of 12h and 31h prove it; About page promises 'Every 2 hours'). Likely GitHub Actions schedule throttling/failures — check 'gh run list --workflow=fetch.yml' (was blocked during this audit by a tooling outage).",
+            "severity": "med"
+          },
+          {
+            "what": "Unescaped third-party HTML: renderCard()/renderBriefItem() in assets/app.js and article.html inject article.title, summary, summary_zh, editor_note and tags into innerHTML raw (escapeHtml() exists but is only used for market pulse). RSS titles containing quotes/angle brackets can break the page or inject script; tag values also break the inline onclick=\"filterByTag('${t}')\" attribute.",
+            "severity": "med"
+          },
+          {
+            "what": "SEO weak for a content site: 100% client-rendered (crawlers/social bots see skeleton divs), sitemap.xml lists only 6 static shells (article.html with no ?id= — useless), article pages have generic '<title>CryptoLens — Article' until JS runs, twitter:card=summary_large_image declared but no og:image exists anywhere, html lang=\"en\" while default UI language is zh.",
+            "severity": "med"
+          },
+          {
+            "what": "Single CDN point of failure: if cdn.jsdelivr.net (supabase-js) fails — common from China, the site's bilingual target audience — auth.js:2 throws and the entire page stays skeletons forever; Google Fonts is also CN-blocked and render-blocking.",
+            "severity": "low"
+          },
+          {
+            "what": "No 公众号/知识星球 CTA or bridge to the domestic funnel anywhere on the site (only email subscribe); acceptable if CryptoLens is overseas-only by design, but currently zero cross-pollination with the domestic monetization track.",
+            "severity": "low"
+          },
+          {
+            "what": "Minor perf: first feed render is serialized behind Promise.all of 6 non-critical calls (pulse, fear/greed, charts...) in index.html init(); missing preconnect to fonts.gstatic.com. Page weight itself is fine (~9KB HTML + 31KB CSS + ~30KB own JS + ~120KB supabase-js CDN).",
+            "severity": "low"
+          }
+        ],
+        "iterations": [
+          {
+            "title": "Restore HTTPS: re-provision GitHub Pages cert for lens.qizh.space (and qizh.space) + Enforce HTTPS",
+            "why": "Site is effectively offline for every https visitor right now; unblocks AdSense review, link sharing, SEO — prerequisite for ALL revenue paths",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "Add ads.txt with the pub-2184467660826262 line",
+            "why": "Direct AdSense-review checklist item; one file, one commit",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "Point the floating affiliate button at accounts.binance.com/register?ref=1216493484 (drop bsmkweb.cc)",
+            "why": "Binance referral is the only LIVE monetization channel and mobile users currently only see the mirror-domain link",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "Fix the Pro checkout: create the Lemon Squeezy store + fill config.js, or hide the Upgrade buttons until ready",
+            "why": "It is the direct first-revenue path and today it 404s — a paying-intent user literally cannot pay; broken button also burns trust",
+            "impact": "high",
+            "effort": "M"
+          },
+          {
+            "title": "Diagnose fetch.yml cadence (gh run list / re-trigger / consider external ping or keep-alive commit)",
+            "why": "Freshness is the product promise ('every 2 hours'); current ~daily runs make the Daily Brief stale by evening and weaken retention",
+            "impact": "med",
+            "effort": "S"
+          },
+          {
+            "title": "Escape all article-derived strings in renderCard/renderBriefItem/article.html (reuse escapeHtml) and data-attribute the tag handlers",
+            "why": "Third-party RSS content injected raw is an XSS/layout-break risk on a finance site — portfolio-quality and AdSense policy hygiene",
+            "impact": "med",
+            "effort": "S"
+          },
+          {
+            "title": "Add og:image (one static branded card) and generate sitemap with real article URLs in the fetch pipeline",
+            "why": "Organic search + social shares are the only free traffic source feeding both AdSense impressions and referral clicks",
+            "impact": "med",
+            "effort": "M"
+          },
+          {
+            "title": "Surface email-subscribe CTA on mobile (sidebar is hidden <900px): inline block after Daily Brief or above footer",
+            "why": "Mobile likely majority of crypto-news traffic; today they see zero subscribe touchpoint in-page — retention/list growth",
+            "impact": "med",
+            "effort": "S"
+          }
+        ]
+      },
+      {
+        "area": "StockLens (stocks.qizh.space) + MetalLens (metals.qizh.space) dashboard audit",
+        "current": "[Stock] repo /home/test/StockLens-site -> rAIn0x7/StockLens-site, live HTTPS 200, deployed bytes (9045) match local HEAD (last commit 2026-06-01 'Wire real Binance referral'). [Metal] repo /home/test/MetalLens-site -> rAIn0x7/MetalLens-site, HTTPS HARD-FAILS (browser ERR_CERT_COMMON_NAME_INVALID; cert served is CN=*.github.io, SAN does not cover metals.qizh.space); content only reachable over plain http:// (9222 bytes = local HEAD, no https redirect => Enforce HTTPS off / cert never provisioned). Both share Supabase uzvguynixndzusrlqryo.supabase.co. Feed freshness vs today 2026-06-10: stock_articles = exactly 5 rows, ALL published_at 2026-05-21T11:02:03Z (20 days old); metal_articles = exactly 5 rows, ALL 2026-05-22T06:58:15Z (19 days old). Titles match the seed INSERTs in supabase-stocklens-migration.sql / supabase-metallens-migration.sql ('NVIDIA Beats Q1 Estimates...', 'Gold Hits $2,400...') => content pipeline has NEVER written real articles to these two tables; live pages render '基于 28 条信号 · 19天前' / '基于 22 条信号 · 18天前' and every feed card says 19天前/18天前. Pro checkout on both subscribe.html builds https://YOUR_STORE_SLUG.lemonsqueezy.com/checkout/buy/YOUR_MONTHLY_VARIANT_ID from config.js placeholders. AdSense loader ca-pub-2184467660826262 on all 4 pages of both sites, but /ads.txt is 404 on both. Binance ref=1216493484 live on both (sidebar accounts.binance.com + floating button bsmkweb.cc mirror). Finnhub key works (SPY $737.05 live); gold spot via currency-api works ($4335, ¥944.84/g).",
+        "working": [
+          "[Both] repos clean, fully pushed; live HTML byte-identical to local HEAD — deploy model healthy",
+          "[Stock] HTTPS + valid cert, HTTP 200",
+          "[Both] 375px mobile renders cleanly: nav wrap fix (<=760px) works, filter strip scrolls, sidebar (email capture + sponsored block) stacks below feed — the @900px .sidebar{display:none} rule at style.css:131 is overridden by the later unconditional .sidebar{display:flex} at line 309, so mobile keeps the conversion surfaces",
+          "[Both] Binance referral live with click tracking (CL.affiliate.track -> Supabase affiliate_clicks insert), ref=1216493484 in both sidebar link and floating button",
+          "[Both] free email capture wired to shared Supabase subscribers table (anon insert path reachable)",
+          "[Both] live market data works client-side: Finnhub SPY/GLD quotes, CNN fear&greed (Stock), currency-api XAU spot + CNY/g conversion (Metal)",
+          "[Both] SEO scaffolding present: canonical, OG/Twitter meta, JSON-LD WebSite, robots.txt, 4-URL sitemap.xml",
+          "[Both] AdSense loader script (ca-pub-2184467660826262) present on index/about/privacy/subscribe of both sites"
+        ],
+        "issues": [
+          {
+            "what": "[Both] Content pipeline dead: stock_articles/metal_articles contain ONLY the 5 migration-SQL seed rows each (single identical timestamp per table, newest 2026-05-21 / 2026-05-22 vs today 2026-06-10). About pages claim 'every 2 hours our pipeline fetches and Gemini-scores content' — currently false for both verticals; sites visibly show 19天前/18天前 on every card",
+            "severity": "high"
+          },
+          {
+            "what": "[Metal] HTTPS broken: metals.qizh.space serves the default *.github.io certificate (verified via curl -v and browser ERR_CERT_COMMON_NAME_INVALID). All https traffic, the canonical URL, social shares, and any AdSense review crawl fail; site only loads over plain http",
+            "severity": "high"
+          },
+          {
+            "what": "[Both] 'Upgrade to Pro $15/mo' checkout is a dead link: goCheckout() in subscribe.html uses config.js placeholders (LS_STORE='YOUR_STORE_SLUG', variant IDs 'YOUR_MONTHLY_VARIANT_ID') — a logged-in user is redirected to a nonexistent lemonsqueezy URL. Zero possible revenue from the advertised paid plan",
+            "severity": "high"
+          },
+          {
+            "what": "[Both] ads.txt missing (live 404 on both domains) — AdSense will flag 'earnings at risk' and it weakens the pending review",
+            "severity": "med"
+          },
+          {
+            "what": "[Both] Daily Brief header stamps TODAY's date (new Date() in loadTodaysTop, app.js:178) while the 48h-window query falls back to all-time top-4, so '今日简报 · 2026年6月10日' sits above 19-day-old seed headlines — misleading freshness, credibility risk",
+            "severity": "med"
+          },
+          {
+            "what": "[Both] Nav broken at 761–900px (verified 820px screenshot): single-row 56px nav clips — Sign In and the primary Subscribe button are cut off the right edge, ghost link buttons (ZION/CRYPTO/METALS) overflow the nav height. The wrap fix only applies <=760px (style.css:1193)",
+            "severity": "med"
+          },
+          {
+            "what": "[Both] Floating 'Trade on Binance' button (affiliate.js:13) links to bsmkweb.cc mirror domain while the sidebar uses accounts.binance.com — inconsistent, looks phishy to overseas users and is an AdSense-policy/trust risk on the international-facing sites",
+            "severity": "med"
+          },
+          {
+            "what": "[Both] AdSense approval risk from thin content: feeds are 100% client-side rendered from Supabase (non-JS crawlers see only skeletons), only 4 static pages + 5 seed articles per site, no og:image despite twitter:card=summary_large_image, no favicon",
+            "severity": "med"
+          },
+          {
+            "what": "[Metal] Sidebar '金属' snapshot mislabels Finnhub ETF quotes as metal symbols: shows 'XAU $390.78' (that is GLD ETF) directly contradicting the hero spot price $4335, and 'XPT $15.63' — wrong-looking numbers undermine the data-product credibility",
+            "severity": "low"
+          },
+          {
+            "what": "[Both] Dead CSS: .sidebar{display:none} inside @media(max-width:900px) (style.css:131) is silently overridden by the later rule at line 309 — outcome is fine today but the intent is ambiguous and fragile to reordering",
+            "severity": "low"
+          }
+        ],
+        "iterations": [
+          {
+            "title": "[Metal] Fix HTTPS cert: re-save the custom domain in GitHub Pages settings for MetalLens-site, wait for cert provisioning, enable Enforce HTTPS",
+            "why": "Unblocks ALL browser traffic, the canonical URL, and makes AdSense review of metals.qizh.space possible at all — nothing else on MetalLens matters until this works",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "[Both] Stand up the article pipeline for stock_articles/metal_articles (clone the CryptoLens fetch+Gemini-score cron to the two new tables)",
+            "why": "AdSense will not approve and no reader returns to a feed frozen on 5 seed rows from 20 days ago; fresh content is the prerequisite for AdSense, retention, and referral clicks",
+            "impact": "high",
+            "effort": "M"
+          },
+          {
+            "title": "[Both] Add ads.txt ('google.com, pub-2184467660826262, DIRECT, f08c47fec0942fa0') to both repo roots",
+            "why": "Removes the AdSense earnings-at-risk flag for the account under review; 2-line commit per repo",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "[Both] Fix or hide the Pro plan: either create the real LemonSqueezy store/variants and fill config.js, or remove the $15/mo card until ready",
+            "why": "A working paid checkout is the most direct first-revenue path; a dead one actively burns the trust of the few users who try to pay",
+            "impact": "high",
+            "effort": "M"
+          },
+          {
+            "title": "[Both] Extend the mobile nav wrap rules from max-width:760px to 900px in assets/style.css",
+            "why": "Restores the clipped Subscribe (primary CTA) and Sign In buttons for tablet/landscape-phone visitors — direct conversion fix, one media-query change",
+            "impact": "med",
+            "effort": "S"
+          },
+          {
+            "title": "[Both] Make Daily Brief honest: show newest article date (or an explicit stale/empty state) instead of stamping today's date over the all-time fallback",
+            "why": "A dashboard that quietly shows 20-day-old news as today's brief destroys the 'AI-filtered daily signal' value prop and is a portfolio-quality liability",
+            "impact": "med",
+            "effort": "S"
+          },
+          {
+            "title": "[Both] Unify affiliate links on accounts.binance.com (drop the bsmkweb.cc mirror on these overseas-facing sites, or geo-gate it)",
+            "why": "Protects the Binance referral revenue stream from user distrust and keeps the sites clean for AdSense policy review",
+            "impact": "med",
+            "effort": "S"
+          },
+          {
+            "title": "[Both] SEO/social polish: add og:image + favicon; prerender top-10 headlines into the static HTML at deploy/cron time",
+            "why": "Makes shared links render previews and exposes actual article text to crawlers — currently search engines and the AdSense bot see only loading skeletons",
+            "impact": "med",
+            "effort": "M"
+          },
+          {
+            "title": "[Metal] Relabel the sidebar snapshot as ETF proxies (GLD/SLV/...) or convert to true spot prices",
+            "why": "XAU shown as $390.78 next to a $4335 hero price reads as a data bug to any gold-literate visitor — cheap credibility fix",
+            "impact": "low",
+            "effort": "S"
+          }
+        ]
+      },
+      {
+        "area": "Monetization / execution audit — path to first revenue (domestic 公众号→知识星球 primary + overseas AdSense/Binance/Pro)",
+        "current": "Primary lever (国内: 公众号引流→知识星球付费, started 06-02) is at step 5/8. primary_log.csv: 06-02 step1 → 06-03 step4 → 06-04 step5, then FLAT at 5 for 6 straight days (06-04→06-10). Done: 星球 registered+positioned, pricing/简介, 5-10 seeded posts, 公众号 registered. Stalled step 5 = write 2-3 free desensitized 公众号 posts w/ 星球 link (plan estimates ~40min). Remaining after: step 6 wire QR to sites (~15min), step 7 seed 10 readers, step 8 first ¥99. Waiting: AdSense review 12 days (since 05-29, nudge due 06-12; ca-pub-2184467660826262 script live on all 4 index.html); TaskFlow skus API 15 days (work track, 12 days past nudge_after=3). Wiring cross-check across /home/test/Zion-site + 3 Lens repos: ZERO occurrences of 知识星球/zsxq anywhere; no 公众号 QR/link on any page (only incidental text mentions). Binance referral ref=1216493484 IS live (CryptoLens/StockLens footers + floating button via assets/affiliate.js on all 3 Lens sites, Supabase click tracking). Zion hub subscribe form is a stub: handleSubscribe() at /home/test/Zion-site/index.html:360 just hides the form — emails never stored ('wire to Substack/Supabase backend later'). All 3 Lens subscribe.html show 'Pro $15/mo / $120/yr → Upgrade' buttons whose goCheckout() builds a LemonSqueezy URL from placeholders (assets/config.js: LS_STORE='YOUR_STORE_SLUG', variant='YOUR_MONTHLY_VARIANT_ID') — any paying visitor hits a dead link. Lens FREE email subscribe is real (Supabase subscribers + newsletter.js batch send). Daily reminder automation healthy (last fire 06-10 10:10, email sent). FingerMOBA linked on hub 06-03 (card copy says 'Godot', code pivoted to Phaser survivor 06-04 — stale, cosmetic).",
+        "working": [
+          "Daily reminder/nudge automation firing on schedule (06-10 10:10 email + Obsidian note; primary_log.csv appending daily)",
+          "Binance referral fully wired: ref=1216493484 footer links + floating CTA on all 3 Lens sites, with Supabase affiliate_clicks tracking",
+          "AdSense loader script present on all 4 sites (qizh.space, lens/stocks/metals.qizh.space) — nothing to do until review verdict; nudge auto-due 06-12",
+          "Lens free newsletter pipeline real: Supabase subscribers table (is_pro flag) + scripts/newsletter.js HTML batch send with referral footer",
+          "知识星球 itself is set up and seeded (steps 1-3 done) — the product side of the funnel exists",
+          "FingerMOBA playable demo live and linked from hub portfolio (rain0x7.github.io/fingermoba/)",
+          "Off-plan parking discipline holding: Stripe/Substack overseas correctly parked, no scope creep there"
+        ],
+        "issues": [
+          {
+            "what": "Primary lever STALLED 6 days on step 5 (write 2-3 公众号 posts) — burst through 4 setup steps in 2 days, then zero progress 06-04→06-10 despite daily nudges. The block is the first WRITING task, not engineering; commits show energy diverted to FingerMOBA pivot (06-04, same day stall began) and site polish",
+            "severity": "high"
+          },
+          {
+            "what": "The entire domestic funnel has no web entry point: zero 知识星球/zsxq/公众号 links or QR anywhere across all 4 site repos — current site traffic cannot convert to the paid community at all (step 6 unreached)",
+            "severity": "high"
+          },
+          {
+            "what": "'Upgrade to Pro $15/mo' buttons on all 3 Lens subscribe pages lead to a broken LemonSqueezy checkout (placeholder YOUR_STORE_SLUG/YOUR_MONTHLY_VARIANT_ID in assets/config.js) — a real buyer today literally cannot pay; burns trust",
+            "severity": "high"
+          },
+          {
+            "what": "qizh.space subscribe form silently discards emails (handleSubscribe stub, /home/test/Zion-site/index.html:360-361) — every hub visitor's email is lost; also breaks step 6's '邮件订阅区' premise",
+            "severity": "med"
+          },
+          {
+            "what": "No nudge fired yet for AdSense (due 06-12) and AdSense pages appear to have only the loader script, no explicit ad units — if approval comes, revenue still needs auto-ads enabled or <ins> slots placed",
+            "severity": "low"
+          },
+          {
+            "what": "Hub FingerMOBA card copy stale ('Godot 引擎' vs actual Phaser survivor build) — portfolio accuracy nit",
+            "severity": "low"
+          }
+        ],
+        "iterations": [
+          {
+            "title": "Unblock step 5 TODAY: adapt 2-3 of the already-seeded 星球 posts into desensitized 公众号 articles (draft with Claude in one sitting, end each with 星球 link/QR)",
+            "why": "This is the single stalled gate to first ¥99 — content already exists from step 3, so it is adaptation not creation; the plan itself budgets only ~40min. Everything downstream (seed readers → first payment) chains off this",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "Do step 6 in the same session: put 星球二维码 + 公众号 link on qizh.space subscribe section and all 3 Lens sites (footer/subscribe.html)",
+            "why": "Funnel currently has zero web mouth — 15min of HTML gives every existing visitor a path to pay; fixes the 'zero zsxq references' gap",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "Step 7 seed push: personally invite friends/groups to 公众号→星球, target 10 real readers within 48h of publishing",
+            "why": "First revenue will come from warm contacts, not SEO; this is the actual conversion step and needs no code",
+            "impact": "high",
+            "effort": "M"
+          },
+          {
+            "title": "Hide or fix the Pro checkout on the 3 Lens subscribe pages — fastest: comment out Upgrade buttons; better: finish LemonSqueezy store (LS is merchant-of-record and works for individuals, so it may un-park the overseas subscription path WITHOUT the HK entity Stripe needs)",
+            "why": "Today a willing payer hits a dead URL — that is a lost first-$ event; the LS route could quietly reopen overseas $15/mo revenue",
+            "impact": "med",
+            "effort": "M"
+          },
+          {
+            "title": "Wire the qizh.space subscribe form to the existing Supabase subscribers table (the Lens stack already has this exact code) or replace it with the 星球/公众号 CTA",
+            "why": "Stops silently losing hub emails; retention/list-building for whichever channel converts",
+            "impact": "med",
+            "effort": "S"
+          },
+          {
+            "title": "06-12 AdSense follow-up: when nudge fires, check review status; if approved, enable Auto Ads (or place ad units — loader script alone earns nothing) and confirm ads render on lens.qizh.space",
+            "why": "Second revenue line, near-zero effort once approved, but traffic is tiny so it will not be the FIRST revenue — keep it passive",
+            "impact": "low",
+            "effort": "S"
+          },
+          {
+            "title": "5-min hygiene: query Supabase affiliate_clicks for Binance click count, and fix hub card copy Godot→Phaser",
+            "why": "Validates whether the referral line gets any traffic at all (data for next bet) + portfolio accuracy for the vibe-coding showcase",
+            "impact": "low",
+            "effort": "S"
+          }
+        ]
+      },
+      {
+        "area": "GAME track — FingerMOBA web (Phaser survivor), repo /home/test/code/fingermoba, live at https://rain0x7.github.io/fingermoba/",
+        "current": "Live and in sync: deployed game.js is byte-identical to local/committed (10,032 bytes, 209 lines). HEAD = 716422c \"pivot from MOBA slice to Survivor.io-style 幸存者生存\" (last touched 2026-06-04). Gameplay state: movement is hold-toward-pointer + WASD — NO VirtualJoystick class anywhere; Phaser config is plain W=540/H=960 with Scale.FIT, no devicePixelRatio/zoom handling (blurry on phone HiDPI screens); all visuals are this.add.circle (4 call sites: player, enemies, projectiles, gems) — no textures loaded. One weapon (auto-fire at nearest, spread for multi-shot), 7-option stat-upgrade pool at level-up, no localStorage/high-score, no audio, no particles (only 50ms white tint on hit), no meta-progression. Git status: single untracked file web/_preview.html (46KB sprite-comparison page, 3 SVG schemes: A flat-rpg / B neon-arcade / C chibi-cute, dated 06-04 18:41). The 06-04 research output STILL EXISTS and is readable: /tmp/claude-1000/-home-test/4cf24ff5-92c1-4f75-bbeb-ca802976c7c8/tasks/wcyu4zp21.output (48,834 bytes, JSON, summary \"Joystick + crisp HiDPI render + real 2D character sprites for the Phaser survivor game\", 6 agents). Zion tile at /home/test/Zion-site/index.html:254 is stale: tag \"Mobile Game · Godot · 2026\", desc \"竖屏单手 3v3 MOBA（指尖刀塔复刻），Godot 引擎\" — game is now a Phaser survivor.",
+        "working": [
+          "GitHub Pages deploy is live and exactly matches the repo — no drift between local and production",
+          "Instant load achieved: ~10KB game.js + CDN Phaser 3.80.1, replacing the old 35MB Godot wasm (commit b4a6e60)",
+          "Core survivor loop is complete and playable: wave spawning with big/small enemies, auto-fire targeting nearest, XP gems with magnet pickup, level-up 3-choice upgrades, death screen + instant restart",
+          "Dual input works: touch hold-to-move on mobile, WASD/arrows on desktop",
+          "Mobile-friendly page shell: proper viewport meta, touch-action:none, boot loader"
+        ],
+        "issues": [
+          {
+            "what": "The ready-to-integrate research output (joystick code + HiDPI config + 3 SVG sprite sets) sits ONLY in volatile /tmp (/tmp/claude-1000/.../wcyu4zp21.output, 48KB) — one reboot or tmp cleanup and 6 agents' worth of work is gone. Nothing from it has been integrated in the 6 days since.",
+            "severity": "high"
+          },
+          {
+            "what": "Zion tile copy is factually wrong for the portfolio piece: says '3v3 MOBA（指尖刀塔复刻），Godot 引擎' with tag 'Mobile Game · Godot · 2026' — the live game is a Phaser survivor. Anyone clicking through from qizh.space sees the mismatch, undermining vibe-coding-portfolio credibility.",
+            "severity": "high"
+          },
+          {
+            "what": "Phone experience is sub-par on exactly the target scenario (地铁单手): no virtual joystick (hold-toward-pointer means your thumb covers the action and you drift into enemies near screen edges), and non-HiDPI 540x960 canvas renders blurry on any modern phone.",
+            "severity": "med"
+          },
+          {
+            "what": "Zero session-to-session hook: no localStorage high score, so '再来一局' has no number to beat and there is no reason to return tomorrow — the single cheapest retention lever is missing.",
+            "severity": "med"
+          },
+          {
+            "what": "All-circles visuals + no audio + no particles: the game reads as a programmer prototype, weakening both retention ('juice' is what makes survivor games feel good) and its value as a portfolio piece.",
+            "severity": "med"
+          },
+          {
+            "what": "web/_preview.html (sprite comparison page) is untracked leftover — decision on sprite scheme A/B/C was never made, so the asset work stalled at the comparison stage.",
+            "severity": "low"
+          }
+        ],
+        "iterations": [
+          {
+            "title": "Rescue the /tmp research output first: copy wcyu4zp21.output into the repo (e.g. /home/test/code/fingermoba/docs/) before anything else",
+            "why": "It contains the already-produced joystick + HiDPI + sprite code; losing it to tmp cleanup means redoing the work. Zero-cost insurance for the whole visual upgrade.",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "Integrate the pending visual upgrade in one pass: VirtualJoystick + HiDPI config (width*DPR, zoom 1/DPR) + one chosen SVG sprite scheme from _preview.html",
+            "why": "Directly fixes the two biggest 地铁想玩几把 blockers (thumb-blocking controls, blurry canvas) and the prototype look — and the code is already written, just needs wiring in. Biggest single jump in perceived quality per hour spent.",
+            "impact": "high",
+            "effort": "M"
+          },
+          {
+            "title": "localStorage high score: persist best survival time / level / kills, show '历史最佳' on death screen and a 'NEW RECORD!' flash",
+            "why": "The minimum viable retention loop — gives every run a number to beat and a reason to reopen on tomorrow's commute. ~20 lines of code.",
+            "impact": "high",
+            "effort": "S"
+          },
+          {
+            "title": "Juice pass: hit/death particles, screen shake on damage taken, WebAudio-synthesized bleeps (shoot/kill/level-up/death) — no asset files needed",
+            "why": "Survivor-genre retention lives on feel; kills that pop and sounds that reward are what turn '玩一把' into '再来三把'. Also lifts portfolio quality.",
+            "impact": "med",
+            "effort": "M"
+          },
+          {
+            "title": "Weapon variety: add 2-3 distinct weapons to the upgrade pool (orbiting blade, AoE nova, chain lightning) so level-ups change playstyle, not just numbers",
+            "why": "Current 7 upgrades are all stat tweaks — runs feel identical by minute 3. Build variety is the genre's core mid-term retention mechanic.",
+            "impact": "med",
+            "effort": "M"
+          },
+          {
+            "title": "Fix the Zion tile copy (Zion-site/index.html:254): tag → 'Web Game · Phaser · 2026', desc → 竖屏单手幸存者生存/秒开 web 游戏; drop the FingerMOBA-as-MOBA framing or rename display title",
+            "why": "qizh.space is the funnel for the whole personal brand; a wrong engine + wrong genre description on the portfolio piece directly damages the vibe-coding credibility the game exists to demonstrate. 5-minute fix.",
+            "impact": "med",
+            "effort": "S"
+          },
+          {
+            "title": "Meta-progression (局外成长): drop coins, persist them in localStorage, pre-run shop for permanent +HP/+dmg/+speed",
+            "why": "The deepest retention layer — converts dead runs into progress. Worth doing only after joystick/HiDPI/high-score land, since it multiplies an experience that must first feel good.",
+            "impact": "med",
+            "effort": "L"
+          },
+          {
+            "title": "Housekeeping: after picking sprite scheme, delete or commit web/_preview.html and commit the integrated upgrade in one clean commit",
+            "why": "Keeps the public Pages repo clean (it doubles as portfolio source code people may read) and closes the dangling 6-day-old decision.",
+            "impact": "low",
+            "effort": "S"
+          }
+        ]
+      }
+    ]
+  }
+}
